@@ -1,0 +1,76 @@
+---
+title: "Remasterizando datos"
+author: "Diego Halabi"
+date: "11 de junio de 2017"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+```
+
+
+## Descripción de los datos.
+Los datos corresponden a 160 pacientes de un servicio dental en la ciudad de Valdivia (Chile), que se sometieron a una extración dental. El diseño es de casos y controles anidado en una cohorte, en que los casos son los pacientes que desarrollaron alveolitis (alveolar osteitis), mientras que los controles no desarrollaron complicaciones postoperatorias. En cada paciente se registró la presencia o ausencia de 8 factores de riesgo descritos en la literatura: sexo femenino, 
+## 1. Importar.
+```{r}
+here::here()
+df.raw <- read_delim('ao.csv', delim = ';',
+                     col_types = cols(
+                       outcome = col_factor(levels = c('0','1')),
+                       age = col_integer(),
+                       gender = col_factor(levels = c('0','1')),
+                       maxilar = col_factor(levels = c('0','1')),
+                       ohi = col_factor(levels = c('0','1')),
+                       infection = col_factor(levels = c('0','1')),
+                       trauma = col_factor(levels = c('0','1')),
+                       disease = col_factor(levels = c('0','1')),
+                       alcohol = col_factor(levels = c('0','1')),
+                       tobacco = col_factor(levels = c('0','1'))
+                     ))
+glimpse(df.raw)
+```
+Vemos que los datos están muy bien ordenados, e identificamos claramente las 10 variables medidas. Sin embargo, como la tabulación fue hecha para trabajar en SPSS (shame), las categorías se encuentran codificadas en 0 (ausencia del factor de riesgo) y 1 (presencia del factor de riesgo), lo que R interpreta como variables cuantitativas.
+
+## 2. Transformar
+Para continuar, se debe realizar una transformación de los datos bastante simple; reemplazar los valores "1" por el factor de riesgo y los valores "0" por los factores control.
+
+```{r}
+df.raw %>%
+  mutate(outcome = recode(outcome, '0' ='health', '1' ='alveolar osteitis')) %>%
+  mutate(outcome = factor(outcome, levels = c('Health', 'Alveolar Osteitis'))) %>%
+  mutate(gender = recode(gender, '0' ='Male', '1' ='Female')) %>%
+  mutate(gender = factor(gender, levels = c('Male', 'Female'))) %>%
+  mutate(maxilar = recode(maxilar, '0' ='mandibular', '1' ='maxilar')) %>%
+  mutate(maxilar = factor(maxilar, levels = c('mandibular', 'maxilar'))) %>%
+  mutate(ohi = recode(ohi, '0' ='bad', '1' ='good')) %>%
+  mutate(ohi = factor(ohi, levels = c('bad', 'good'))) %>%
+  mutate(infection = recode(infection, '0' ='yes', '1' ='no')) %>%
+  mutate(infection = factor(infection, levels = c('yes', 'no'))) %>%
+  mutate(trauma = recode(trauma, '0' ='yes', '1' ='no')) %>%
+  mutate(trauma = factor(trauma, levels = c('yes', 'no'))) %>%
+  mutate(disease = recode(disease, '0' ='yes', '1' ='no')) %>%
+  mutate(disease = factor(disease, levels = c('yes', 'no'))) %>%
+  mutate(alcohol = recode(alcohol, '0' ='yes', '1' ='no')) %>%
+  mutate(alcohol = factor(alcohol, levels = c('yes', 'no'))) %>%
+  mutate(tobacco = recode(tobacco, '0' ='smoker', '1' ='non-smoker')) %>%
+  mutate(tobacco = factor(tobacco, levels = c('smoker', 'non-smoker')))
+```
+
+
+Seleccionamos solo las variables que utilizaremos en el modelo, es decir, quitamos la edad, que solo se registró para obtener información demográfica.
+```{r}
+df <- subset(df.raw,drop=c(2))
+```
+
+
+## 4. Modelar.
+```{r}
+fit1 <- glm(outcome ~.,family=binomial(link='logit'),data=df)
+summary(fit1)
+fit2 <- glm(outcome ~infection+trauma+tobacco,family=binomial(link='logit'),data=df)
+summary(fit2)
+```
+
+
+## 5. Conclusiones.
